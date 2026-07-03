@@ -1,0 +1,43 @@
+/* ========== [LightTheme] - 日间主题变量 ========== */
+[data-theme="light"] {
+  --bg-primary: #F5F0EB;
+  --bg-secondary: #FFFFFF;
+  --bg-glass: rgba(255, 255, 255, 0.6);
+  --text-primary: #2D2D2D;
+  --text-secondary: #6B6B6B;
+  --accent: #7C9EB5;
+  --accent-hover: #5A8299;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: rgba(0, 0, 0, 0.05);
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --bubble-user: #E8F0FE;
+  --bubble-ai: #FFFFFF;
+}
+/* ========== [LightTheme] END ========== */
+
+/* ========== [DarkTheme] - 夜间主题变量 ========== */
+[data-theme="dark"] {
+  --bg-primary: #0D1117;
+  --bg-secondary: #161B22;
+  --bg-glass: rgba(22, 27, 34, 0.7);
+  --text-primary: #E6EDF3;
+  --text-secondary: #8B949E;
+  --accent: #7C9EB5;
+  --accent-hover: #9FBDD4;
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: rgba(0, 0, 0, 0.3);
+  --input-bg: rgba(22, 27, 34, 0.8);
+  --bubble-user: #1C2333;
+  --bubble-ai: #161B22;
+}
+/* ========== [DarkTheme] END ========== */
+
+/* ========== [ThemeTransition] - 主题切换过渡 ========== */
+*,
+*::before,
+*::after {
+  transition: background-color 0.5s ease,color 0.5s ease,
+              border-color 0.5s ease,
+              box-shadow 0.5s ease;
+}
+/* ========== [ThemeTransition] END ========== */
