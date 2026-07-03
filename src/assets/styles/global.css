@@ -3,6 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 /* ========== [TailwindDirectives] END ========== */
+/* ========== [TailwindDirectives] - Tailwind 基础指令 ========== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* ========== [TailwindDirectives] END ========== */
+
+/* ========== [StyleImports] - 样式文件导入 ========== */
+@import './themes.css';
+@import './animations.css';
+/* ========== [StyleImports] END ========== */
 
 /* ========== [CSSVariables] - 全局CSS 变量（非主题相关） ========== */
 :root {
