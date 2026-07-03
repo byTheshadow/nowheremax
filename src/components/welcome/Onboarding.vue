@@ -4,7 +4,6 @@ import { ref, computed } from 'vue'
 import { useAppStore } from '@/stores/useAppStore'
 import { useConfigStore } from '@/stores/useConfigStore'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { isValidBaseURL, isValidAPIKey, isValidGender } from '@/utils/validators'
 /* ========== [Imports] END ========== */
 
 /* ========== [StoreRefs] - Store 引用 ========== */
@@ -18,14 +17,14 @@ const currentStep = ref(1)
 const totalSteps = 3
 
 // Step 1: API 配置
-const localBaseURL = ref(configStore.baseURL ||'https://api.openai.com/v1')
+const localBaseURL = ref(configStore.baseURL || 'https://api.openai.com/v1')
 const localApiKey = ref(configStore.apiKey || '')
 const localModel = ref(configStore.model || '')
-const localModelInput = ref('')
+const localModelInput = ref(configStore.model || '')
 const modelList = ref([])
 const isFetchingModels = ref(false)
-const fetchModelError = ref('')
-const useManualModel = ref(false)
+const modelFetchError = ref('')
+const useManualModel = ref(true)
 
 // Step 2: 健康档案
 const localNickname = ref(profileStore.nickname || '')
@@ -48,33 +47,46 @@ const effectiveModel = computed(() => {
   if (useManualModel.value) {
     return localModelInput.value.trim()
   }
-  return localModel.value
+  return localModel.value.trim()
+})
+
+const isBaseURLValid = computed(() => {
+  if (!localBaseURL.value || typeof localBaseURL.value !== 'string') return false
+  try {
+    const parsed = new URL(localBaseURL.value)
+    return ['http:', 'https:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+})
+
+const isApiKeyValid = computed(() => {
+  return typeof localApiKey.value === 'string' && localApiKey.value.trim().length > 0
+})
+
+const isModelValid = computed(() => {
+  return effectiveModel.value.length > 0
 })
 
 const canProceedStep1 = computed(() => {
-  return isValidBaseURL(localBaseURL.value) &&
-         isValidAPIKey(localApiKey.value) &&
-         effectiveModel.value.length > 0
+  return isBaseURLValid.value && isApiKeyValid.value && isModelValid.value
 })
 
 const canProceedStep2 = computed(() => {
-  return localNickname.value.trim() !== '' && isValidGender(localGender.value)
+  return localNickname.value.trim() !== '' &&
+    ['male', 'female', 'other'].includes(localGender.value)
 })
 /* ========== [Computed] END ========== */
 
 /* ========== [Methods] - 操作方法 ========== */
-
-/**
- * 获取模型列表
- */
 async function handleFetchModels() {
-  if (!isValidBaseURL(localBaseURL.value) || !isValidAPIKey(localApiKey.value)) {
-    fetchModelError.value = '请先填写有效的 Base URL 和 API Key'
+  if (!isBaseURLValid.value || !isApiKeyValid.value) {
+    modelFetchError.value = '请先填写有效的 Base URL 和 API Key'
     return
   }
 
   isFetchingModels.value = true
-  fetchModelError.value = ''
+  modelFetchError.value = ''
 
   try {
     const res = await fetch(`${localBaseURL.value}/models`, {
@@ -89,33 +101,25 @@ async function handleFetchModels() {
     const models = json.data || json.models || json
 
     if (Array.isArray(models)) {
-      modelList.value = models.map(m => m.id || m.name || m).filter(Boolean)
-        .sort()
-
+      modelList.value = models.map(m => m.id || m.name || m).filter(Boolean).sort()
       if (modelList.value.length > 0) {
-        useManualModel.value = falsefetchModelError.value = ''
+        useManualModel.value = falsemodelFetchError.value = ''
       } else {
-        fetchModelError.value = '未找到可用模型，请手动输入模型名称'
+        modelFetchError.value = '未找到模型，请手动输入'
         useManualModel.value = true
       }
     } else {
-      modelList.value = []
-      fetchModelError.value = '返回格式异常，请手动输入模型名称'
+      modelFetchError.value = '返回格式异常，请手动输入'
       useManualModel.value = true
     }
   } catch (error) {
-    console.error('[Onboarding] 获取模型失败:', error)
-    fetchModelError.value = `获取失败: ${error.message}，可手动输入模型名称`
-    modelList.value = []
+    modelFetchError.value = `获取失败: ${error.message}`
     useManualModel.value = true
   } finally {
     isFetchingModels.value = false
   }
 }
 
-/**
- * 切换手动输入模式
- */
 function toggleManualMode() {
   useManualModel.value = !useManualModel.value
   if (useManualModel.value) {
@@ -123,9 +127,6 @@ function toggleManualMode() {
   }
 }
 
-/**
- * 切换情绪标签
- */
 function toggleMood(mood) {
   const index = localMoods.value.indexOf(mood)
   if (index === -1) {
@@ -135,29 +136,19 @@ function toggleMood(mood) {
   }
 }
 
-/**
- * 下一步
- */
 function nextStep() {
   if (currentStep.value < totalSteps) {
     currentStep.value++
   }
 }
 
-/**
- * 上一步
- */
 function prevStep() {
   if (currentStep.value > 1) {
     currentStep.value--
   }
 }
 
-/**
- * 完成引导
- */
 async function finishOnboarding() {
-  // 保存 API 配置
   configStore.setAPIConfig({
     baseURL: localBaseURL.value,
     apiKey: localApiKey.value,
@@ -166,7 +157,6 @@ async function finishOnboarding() {
   configStore.setGitHubToken(localGithubToken.value)
   await configStore.saveToStorage()
 
-  // 保存健康档案
   profileStore.setProfile({
     nickname: localNickname.value,
     gender: localGender.value,
@@ -178,13 +168,9 @@ async function finishOnboarding() {
   })
   await profileStore.saveToStorage()
 
-  // 进入主界面
   appStore.navigateTo('main')
 }
 
-/**
- * 跳过 GitHub 配置，直接完成
- */
 function skipAndFinish() {
   localGithubToken.value = ''
   finishOnboarding()
@@ -234,27 +220,16 @@ function skipAndFinish() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">
-            Model
+          <label class="form-label"><span>Model</span>
             <button class="toggle-mode-btn" @click="toggleManualMode">
-              {{ useManualModel ? '切换为下拉选择' : '手动输入' }}
+              {{ useManualModel ? '尝试自动获取' : '手动输入' }}
             </button>
           </label>
 
-          <!-- 下拉选择模式 -->
           <div v-if="!useManualModel" class="model-row">
-            <select
-              v-model="localModel"
-              class="form-select"
-            >
+            <select v-model="localModel" class="form-select">
               <option value="" disabled>请选择模型</option>
-              <option
-                v-for="m in modelList"
-                :key="m"
-                :value="m"
-              >
-                {{ m }}
-              </option>
+              <option v-for="m in modelList" :key="m" :value="m">{{ m }}</option>
             </select>
             <button
               class="refresh-btn"
@@ -265,32 +240,26 @@ function skipAndFinish() {
             </button>
           </div>
 
-          <!-- 手动输入模式 -->
-          <div v-else class="model-row">
+          <div v-else>
             <input
               v-model="localModelInput"
               type="text"
               class="form-input"
-              placeholder="输入模型名称，如 gpt-4o、deepseek-chat"
-            />
-          </div>
+              placeholder="如deepseek-chat、gpt-4o"
+            /></div>
 
-          <p v-if="fetchModelError" class="form-error">{{ fetchModelError }}</p>
-          <p v-if="!useManualModel && modelList.length === 0" class="form-hint">
-            点击 🔄 获取模型列表，或点击"手动输入"直接填写模型名称
-          </p>
+          <p v-if="modelFetchError" class="form-error">{{ modelFetchError }}</p>
         </div>
 
-        <!-- 验证状态提示 -->
         <div class="validation-status">
-          <span :class="isValidBaseURL(localBaseURL) ? 'check-ok' : 'check-no'">
-            {{ isValidBaseURL(localBaseURL) ? '✓' : '○' }} Base URL
+          <span :class="isBaseURLValid ? 'check-ok' : 'check-no'">
+            {{ isBaseURLValid ? '✓' : '○' }} Base URL
           </span>
-          <span :class="isValidAPIKey(localApiKey) ? 'check-ok' : 'check-no'">
-            {{ isValidAPIKey(localApiKey) ? '✓' : '○' }} API Key
+          <span :class="isApiKeyValid ? 'check-ok' : 'check-no'">
+            {{ isApiKeyValid ? '✓' : '○' }} API Key
           </span>
-          <span :class="effectiveModel.length > 0 ? 'check-ok' : 'check-no'">
-            {{ effectiveModel.length > 0 ? '✓' : '○' }} Model
+          <span :class="isModelValid ? 'check-ok' : 'check-no'">
+            {{ isModelValid ? '✓' : '○' }} Model
           </span>
         </div>
 
@@ -318,7 +287,8 @@ function skipAndFinish() {
             v-model="localNickname"
             type="text"
             class="form-input"
-            placeholder="你希望我怎么称呼你？"maxlength="20"
+            placeholder="你希望我怎么称呼你？"
+            maxlength="20"
           />
         </div>
 
@@ -468,9 +438,9 @@ function skipAndFinish() {
   height: 100dvh;
   height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 1rem;
+  padding: 2rem 1rem;
   background-color: var(--bg-primary);
   overflow-y: auto;
 }
@@ -478,10 +448,10 @@ function skipAndFinish() {
 .onboarding-card {
   width: 100%;
   max-width: 480px;
-  max-height: 90vh;
-  overflow-y: auto;
   border-radius: var(--radius-lg);
-  padding: 2rem;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
   animation: fadeInUp 0.5s ease;
 }
 /* ========== [Container] END ========== */
@@ -491,7 +461,7 @@ function skipAndFinish() {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .progress-dot {
@@ -505,8 +475,7 @@ function skipAndFinish() {
 
 .progress-dot.active {
   opacity: 1;
-  background: var(--accent);
-  width: 24px;
+  background: var(--accent);width: 24px;
   border-radius: var(--radius-full);
 }
 /* ========== [Progress] END ========== */
@@ -517,10 +486,10 @@ function skipAndFinish() {
 }
 
 .step-title {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 500;
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
   color: var(--text-primary);
 }
 
@@ -528,13 +497,13 @@ function skipAndFinish() {
   font-size: 0.8rem;
   text-align: center;
   color: var(--text-secondary);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 /* ========== [StepContent] END ========== */
 
 /* ========== [FormElements] - 表单元素 ========== */
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .form-label {
@@ -543,7 +512,7 @@ function skipAndFinish() {
   justify-content: space-between;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
 }
 
 .required {
@@ -567,12 +536,12 @@ function skipAndFinish() {
 .form-select,
 .form-textarea {
   width: 100%;
-  padding: 0.625rem 0.875rem;
+  padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
   background: var(--input-bg);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   transition: border-color 0.3s ease;
 }
 
@@ -589,11 +558,11 @@ function skipAndFinish() {
 
 .form-textarea {
   resize: vertical;
-  min-height: 60px;
+  min-height: 50px;
 }
 
 .form-error {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #e5a373;
   margin-top: 0.25rem;
 }
@@ -601,7 +570,7 @@ function skipAndFinish() {
 .form-hint {
   font-size: 0.7rem;
   color: var(--text-secondary);
-  margin-top: 0.375rem;
+  margin-top: 0.25rem;
   opacity: 0.7;
 }
 
@@ -614,12 +583,8 @@ function skipAndFinish() {
   flex: 1;
 }
 
-.model-row .form-input {
-  flex: 1;
-}
-
 .refresh-btn {
-  padding: 0.625rem 0.875rem;
+  padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
   background: var(--input-bg);
   border: 1px solid var(--border);
@@ -638,12 +603,11 @@ function skipAndFinish() {
 }
 /* ========== [FormElements] END ========== */
 
-/* ========== [ValidationStatus] - 验证状态指示 ========== */
+/* ========== [ValidationStatus] - 验证状态 ========== */
 .validation-status {
   display: flex;
   gap: 1rem;
   font-size: 0.7rem;
-  margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
@@ -660,12 +624,11 @@ function skipAndFinish() {
 /* ========== [RadioGroup] - 单选按钮组 ========== */
 .radio-group {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;flex-wrap: wrap;
 }
 
 .radio-item {
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.875rem;
   border-radius: var(--radius-sm);
   background: var(--input-bg);
   border: 1px solid var(--border);
@@ -689,15 +652,15 @@ function skipAndFinish() {
 .mood-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .mood-tag {
-  padding: 0.375rem 0.75rem;
+  padding: 0.3rem 0.625rem;
   border-radius: var(--radius-full);
   background: var(--input-bg);
   border: 1px solid var(--border);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -720,7 +683,7 @@ function skipAndFinish() {
 }
 
 .star-btn {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   cursor: pointer;
   transition: transform 0.2s ease;color: var(--text-secondary);
 }
@@ -739,8 +702,8 @@ function skipAndFinish() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2rem;
-  padding-top: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
 
@@ -750,7 +713,7 @@ function skipAndFinish() {
 }
 
 .btn-primary {
-  padding: 0.625rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-radius: var(--radius-full);
   background: var(--accent);
   color: #FFFFFF;
@@ -769,7 +732,7 @@ function skipAndFinish() {
 }
 
 .btn-secondary {
-  padding: 0.625rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-radius: var(--radius-full);
   background: transparent;
   border: 1px solid var(--border);
