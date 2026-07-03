@@ -6,92 +6,6 @@ import { useConfigStore } from '@/stores/useConfigStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { isValidBaseURL, isValidAPIKey, isValidGender } from '@/utils/validators'
 /* ========== [Imports] END ========== */
-/* ========== [StyleImports] - 样式文件导入 ========== */
-@import './themes.css';
-@import './animations.css';
-/* ========== [StyleImports] END ========== */
-
-/* ========== [TailwindDirectives] - Tailwind 基础指令 ========== */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-/* ========== [TailwindDirectives] END ========== */
-
-/* ========== [CSSVariables] - 全局CSS变量（非主题相关） ========== */
-:root {
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-full: 9999px;
-}
-/* ========== [CSSVariables] END ========== */
-
-/* ========== [BaseReset] - 基础样式重置 ========== */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  min-height: 100dvh;
-  min-height: 100vh;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  overflow: hidden;
-}
-
-#app {
-  width: 100%;
-  height: 100dvh;
-  height: 100vh;
-  position: relative;
-}
-
-input, textarea, select, button {
-  font: inherit;
-  color: inherit;
-  border: none;
-  outline: none;
-  background: none;
-}
-
-button {
-  cursor: pointer;
-}
-
-::-webkit-scrollbar {
-  width: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--text-secondary);
-  border-radius: var(--radius-full);
-  opacity: 0.3;
-}
-/* ========== [BaseReset] END ========== */
-
-/* ========== [UtilityClasses] - 全局工具类 ========== */
-.glass {
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border);box-shadow: 0 8px 32px var(--shadow);
-}
-/* ========== [UtilityClasses] END ========== */
 
 /* ========== [StoreRefs] - Store 引用 ========== */
 const appStore = useAppStore()
@@ -107,7 +21,7 @@ const totalSteps = 3
 const localBaseURL = ref(configStore.baseURL ||'https://api.openai.com/v1')
 const localApiKey = ref(configStore.apiKey || '')
 const localModel = ref(configStore.model || '')
-const manualModelInput = ref('')
+const localModelInput = ref('')
 const modelList = ref([])
 const isFetchingModels = ref(false)
 const fetchModelError = ref('')
@@ -132,7 +46,7 @@ const moodOptions = ['焦虑', '低落', '平静', '亢奋', '疲惫', '开心',
 /* ========== [Computed] - 步骤验证 ========== */
 const effectiveModel = computed(() => {
   if (useManualModel.value) {
-    return manualModelInput.value.trim()
+    return localModelInput.value.trim()
   }
   return localModel.value
 })
@@ -181,17 +95,15 @@ async function handleFetchModels() {
       if (modelList.value.length > 0) {
         useManualModel.value = falsefetchModelError.value = ''
       } else {
-        fetchModelError.value = '未获取到模型，请尝试手动输入'
-        useManualModel.value = true
+        fetchModelError.value = '未找到可用模型，请手动输入模型名称'useManualModel.value = true
       }
     } else {
       modelList.value = []
-      fetchModelError.value = '返回格式异常，请尝试手动输入模型名'
-      useManualModel.value = true
+      fetchModelError.value = '返回格式异常，请手动输入模型名称'useManualModel.value = true
     }
   } catch (error) {
     console.error('[Onboarding] 获取模型失败:', error)
-    fetchModelError.value = `获取失败: ${error.message}，可手动输入模型名`
+    fetchModelError.value = `获取失败: ${error.message}，可手动输入模型名称`
     modelList.value = []
     useManualModel.value = true
   } finally {
@@ -200,12 +112,12 @@ async function handleFetchModels() {
 }
 
 /**
- * 切换手动/下拉模式
+ * 切换手动输入模式
  */
 function toggleManualMode() {
   useManualModel.value = !useManualModel.value
-  if (!useManualModel.value && modelList.value.length === 0) {
-    fetchModelError.value = '请先点击 🔄 获取模型列表，或切换为手动输入'
+  if (useManualModel.value) {
+    localModelInput.value = localModel.value || ''
   }
 }
 
@@ -243,7 +155,7 @@ function prevStep() {
  * 完成引导
  */
 async function finishOnboarding() {
-  // 保存 API配置
+  // 保存 API 配置
   configStore.setAPIConfig({
     baseURL: localBaseURL.value,
     apiKey: localApiKey.value,
@@ -333,9 +245,7 @@ function skipAndFinish() {
               v-model="localModel"
               class="form-select"
             >
-              <option value="" disabled>
-                {{ modelList.length > 0 ? '请选择模型' : '请先点击 🔄 获取' }}
-              </option>
+              <option value="" disabled>请选择模型</option>
               <option
                 v-for="m in modelList"
                 :key="m"
@@ -349,45 +259,37 @@ function skipAndFinish() {
               :disabled="isFetchingModels"
               @click="handleFetchModels"
             >
-              {{ isFetchingModels ? '⏳' : '🔄' }}
+              {{ isFetchingModels ? '...' : '🔄' }}
             </button>
           </div>
 
           <!-- 手动输入模式 -->
           <div v-else class="model-row">
             <input
-              v-model="manualModelInput"
+              v-model="localModelInput"
               type="text"
               class="form-input"
-              placeholder="输入模型名，如 gpt-4o、deepseek-chat"
+              placeholder="输入模型名称，如 gpt-4o、deepseek-chat"
             />
-            <button
-              class="refresh-btn"
-              :disabled="isFetchingModels"
-              @click="handleFetchModels"
-              title="尝试获取模型列表"
-            >
-              {{ isFetchingModels ? '⏳' : '🔄' }}
-            </button>
           </div>
 
           <p v-if="fetchModelError" class="form-error">{{ fetchModelError }}</p>
-          <p v-if="modelList.length > 0 && !useManualModel" class="form-hint">
-            已获取到 {{ modelList.length }} 个模型
+          <p v-if="!useManualModel && modelList.length === 0" class="form-hint">
+            点击 🔄 获取模型列表，或点击"手动输入"直接填写模型名称
           </p>
         </div>
 
         <!-- 验证状态提示 -->
-        <div class="validation-hints">
-          <div class="hint-item" :class="{ valid: isValidBaseURL(localBaseURL) }">
-            {{ isValidBaseURL(localBaseURL) ? '✅' : '⬜' }} Base URL 有效
-          </div>
-          <div class="hint-item" :class="{ valid: isValidAPIKey(localApiKey) }">
-            {{ isValidAPIKey(localApiKey) ? '✅' : '⬜' }} API Key 已填写
-          </div>
-          <div class="hint-item" :class="{ valid: effectiveModel.length > 0 }">
-            {{ effectiveModel.length > 0 ? '✅' : '⬜' }} 模型已选择
-          </div>
+        <div class="validation-status">
+          <span :class="isValidBaseURL(localBaseURL) ? 'check-ok' : 'check-no'">
+            {{ isValidBaseURL(localBaseURL) ? '✓' : '○' }} Base URL
+          </span>
+          <span :class="isValidAPIKey(localApiKey) ? 'check-ok' : 'check-no'">
+            {{ isValidAPIKey(localApiKey) ? '✓' : '○' }} API Key
+          </span>
+          <span :class="effectiveModel.length > 0 ? 'check-ok' : 'check-no'">
+            {{ effectiveModel.length > 0 ? '✓' : '○' }} Model
+          </span>
         </div>
 
         <div class="step-actions">
@@ -601,7 +503,8 @@ function skipAndFinish() {
 
 .progress-dot.active {
   opacity: 1;
-  background: var(--accent);width: 24px;
+  background: var(--accent);
+  width: 24px;
   border-radius: var(--radius-full);
 }
 /* ========== [Progress] END ========== */
@@ -705,7 +608,10 @@ function skipAndFinish() {
   gap: 0.5rem;
 }
 
-.model-row .form-select,
+.model-row .form-select {
+  flex: 1;
+}
+
 .model-row .form-input {
   flex: 1;
 }
@@ -730,34 +636,30 @@ function skipAndFinish() {
 }
 /* ========== [FormElements] END ========== */
 
-/* ========== [ValidationHints] - 验证状态提示 ========== */
-.validation-hints {
+/* ========== [ValidationStatus] - 验证状态指示 ========== */
+.validation-status {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  border-radius: var(--radius-md);
-  background: var(--input-bg);
-  margin-bottom: 1rem;
+  gap: 1rem;
+  font-size: 0.7rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
-.hint-item {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  opacity: 0.6;
-  transition: all 0.3s ease;
-}
-
-.hint-item.valid {
-  opacity: 1;
+.check-ok {
   color: #81c784;
 }
-/* ========== [ValidationHints] END ========== */
+
+.check-no {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+/* ========== [ValidationStatus] END ========== */
 
 /* ========== [RadioGroup] - 单选按钮组 ========== */
 .radio-group {
   display: flex;
-  gap: 0.5rem;flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .radio-item {
