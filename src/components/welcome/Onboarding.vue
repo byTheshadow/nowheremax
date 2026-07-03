@@ -6,6 +6,92 @@ import { useConfigStore } from '@/stores/useConfigStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { isValidBaseURL, isValidAPIKey, isValidGender } from '@/utils/validators'
 /* ========== [Imports] END ========== */
+/* ========== [StyleImports] - 样式文件导入 ========== */
+@import './themes.css';
+@import './animations.css';
+/* ========== [StyleImports] END ========== */
+
+/* ========== [TailwindDirectives] - Tailwind 基础指令 ========== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* ========== [TailwindDirectives] END ========== */
+
+/* ========== [CSSVariables] - 全局CSS变量（非主题相关） ========== */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+}
+/* ========== [CSSVariables] END ========== */
+
+/* ========== [BaseReset] - 基础样式重置 ========== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100dvh;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100dvh;
+  height: 100vh;
+  position: relative;
+}
+
+input, textarea, select, button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+  border-radius: var(--radius-full);
+  opacity: 0.3;
+}
+/* ========== [BaseReset] END ========== */
+
+/* ========== [UtilityClasses] - 全局工具类 ========== */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);box-shadow: 0 8px 32px var(--shadow);
+}
+/* ========== [UtilityClasses] END ========== */
 
 /* ========== [StoreRefs] - Store 引用 ========== */
 const appStore = useAppStore()
@@ -95,7 +181,8 @@ async function handleFetchModels() {
       if (modelList.value.length > 0) {
         useManualModel.value = falsefetchModelError.value = ''
       } else {
-        fetchModelError.value = '未获取到模型，请尝试手动输入'useManualModel.value = true
+        fetchModelError.value = '未获取到模型，请尝试手动输入'
+        useManualModel.value = true
       }
     } else {
       modelList.value = []
