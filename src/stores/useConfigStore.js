@@ -112,7 +112,8 @@ export const useConfigStore = defineStore('config', () => {
       apiKey: apiKey.value,
       model: model.value,
       githubToken: githubToken.value
-    })await saveData(STORAGE_KEYS.PERSONAS, customPersonas.value)
+    })
+    await saveData(STORAGE_KEYS.PERSONAS, customPersonas.value)
   }
   /* ========== [Persistence] END ========== */
 
