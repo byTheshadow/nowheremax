@@ -95,7 +95,8 @@ async function handleFetchModels() {
       if (modelList.value.length > 0) {
         useManualModel.value = falsefetchModelError.value = ''
       } else {
-        fetchModelError.value = '未找到可用模型，请手动输入模型名称'useManualModel.value = true
+        fetchModelError.value = '未找到可用模型，请手动输入模型名称'
+        useManualModel.value = true
       }
     } else {
       modelList.value = []
