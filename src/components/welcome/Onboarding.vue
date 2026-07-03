@@ -701,13 +701,14 @@ function skipAndFinish() {
 /* ========== [StarRating] END ========== */
 
 /* ========== [Actions] - 操作按钮 ========== */
+/* ========== [Actions] - 操作按钮 ========== */
 .step-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 1.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border, rgba(148, 163, 184, 0.25));
 }
 
 .action-group {
@@ -715,18 +716,29 @@ function skipAndFinish() {
   gap: 0.5rem;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-secondary {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
   padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: #FFFFFF;
+  border-radius: var(--radius-full, 9999px);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent, #7C9EB5);
+  color: #ffffff;
+  border: 1px solid var(--accent, #7C9EB5);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--accent-hover, #6a8aa1);
+  border-color: var(--accent-hover, #6a8aa1);
 }
 
 .btn-primary:disabled {
@@ -735,19 +747,14 @@ function skipAndFinish() {
 }
 
 .btn-secondary {
-  padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-full);
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.25));
+  color: var(--text-secondary, #94a3b8);
 }
 
 .btn-secondary:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent, #7C9EB5);
+  color: var(--accent, #7C9EB5);
 }
 /* ========== [Actions] END ========== */
 </style>
