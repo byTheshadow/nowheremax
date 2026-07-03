@@ -100,7 +100,8 @@ async function handleFetchModels() {
       }
     } else {
       modelList.value = []
-      fetchModelError.value = '返回格式异常，请手动输入模型名称'useManualModel.value = true
+      fetchModelError.value = '返回格式异常，请手动输入模型名称'
+      useManualModel.value = true
     }
   } catch (error) {
     console.error('[Onboarding] 获取模型失败:', error)
