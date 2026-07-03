@@ -89,7 +89,8 @@ async function handleFetchModels() {
     }
   } catch (error) {
     console.error('[Onboarding] 获取模型失败:', error)
-    fetchModelError.value = `获取失败: ${error.message}`modelList.value = []
+    fetchModelError.value = `获取失败: ${error.message}`
+    modelList.value = []
   } finally {
     isFetchingModels.value = false
   }
