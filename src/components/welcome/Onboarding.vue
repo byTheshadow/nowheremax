@@ -1,10 +1,10 @@
 <script setup>
-/* ========== [Imports] - 依赖导入 ========== */
+/*========== [Imports] - 依赖导入 ========== */
 import { ref, computed } from 'vue'
 import { useAppStore } from '@/stores/useAppStore'
 import { useConfigStore } from '@/stores/useConfigStore'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { isValidBaseURL, isValidAPIKey, isValidModel, isValidGender } from '@/utils/validators'
+import { isValidBaseURL, isValidAPIKey, isValidGender } from '@/utils/validators'
 /* ========== [Imports] END ========== */
 
 /* ========== [StoreRefs] - Store 引用 ========== */
@@ -18,12 +18,14 @@ const currentStep = ref(1)
 const totalSteps = 3
 
 // Step 1: API 配置
-const localBaseURL = ref(configStore.baseURL || 'https://api.openai.com/v1')
+const localBaseURL = ref(configStore.baseURL ||'https://api.openai.com/v1')
 const localApiKey = ref(configStore.apiKey || '')
 const localModel = ref(configStore.model || '')
+const manualModelInput = ref('')
 const modelList = ref([])
 const isFetchingModels = ref(false)
 const fetchModelError = ref('')
+const useManualModel = ref(false)
 
 // Step 2: 健康档案
 const localNickname = ref(profileStore.nickname || '')
@@ -42,10 +44,17 @@ const moodOptions = ['焦虑', '低落', '平静', '亢奋', '疲惫', '开心',
 /* ========== [State] END ========== */
 
 /* ========== [Computed] - 步骤验证 ========== */
+const effectiveModel = computed(() => {
+  if (useManualModel.value) {
+    return manualModelInput.value.trim()
+  }
+  return localModel.value
+})
+
 const canProceedStep1 = computed(() => {
   return isValidBaseURL(localBaseURL.value) &&
          isValidAPIKey(localApiKey.value) &&
-         isValidModel(localModel.value)
+         effectiveModel.value.length > 0
 })
 
 const canProceedStep2 = computed(() => {
@@ -80,19 +89,36 @@ async function handleFetchModels() {
     const models = json.data || json.models || json
 
     if (Array.isArray(models)) {
-      modelList.value = models.map(m => m.id || m.name || m)
-        .filter(Boolean)
+      modelList.value = models.map(m => m.id || m.name || m).filter(Boolean)
         .sort()
+
+      if (modelList.value.length > 0) {
+        useManualModel.value = falsefetchModelError.value = ''
+      } else {
+        fetchModelError.value = '未获取到模型，请尝试手动输入'useManualModel.value = true
+      }
     } else {
       modelList.value = []
-      fetchModelError.value = '返回格式异常，请检查 Base URL'
+      fetchModelError.value = '返回格式异常，请尝试手动输入模型名'
+      useManualModel.value = true
     }
   } catch (error) {
     console.error('[Onboarding] 获取模型失败:', error)
-    fetchModelError.value = `获取失败: ${error.message}`
+    fetchModelError.value = `获取失败: ${error.message}，可手动输入模型名`
     modelList.value = []
+    useManualModel.value = true
   } finally {
     isFetchingModels.value = false
+  }
+}
+
+/**
+ * 切换手动/下拉模式
+ */
+function toggleManualMode() {
+  useManualModel.value = !useManualModel.value
+  if (!useManualModel.value && modelList.value.length === 0) {
+    fetchModelError.value = '请先点击 🔄 获取模型列表，或切换为手动输入'
   }
 }
 
@@ -134,7 +160,7 @@ async function finishOnboarding() {
   configStore.setAPIConfig({
     baseURL: localBaseURL.value,
     apiKey: localApiKey.value,
-    model: localModel.value
+    model: effectiveModel.value
   })
   configStore.setGitHubToken(localGithubToken.value)
   await configStore.saveToStorage()
@@ -166,8 +192,9 @@ function skipAndFinish() {
 </script>
 
 <template>
-  <!-- ========== [OnboardingContainer] - 引导容器 ========== -->
-  <div class="onboarding-container"><div class="onboarding-card glass">
+  <!--========== [OnboardingContainer] - 引导容器 ========== -->
+  <div class="onboarding-container">
+    <div class="onboarding-card glass">
 
       <!-- ========== [ProgressBar] - 进度指示 ========== -->
       <div class="progress-bar">
@@ -206,13 +233,22 @@ function skipAndFinish() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Model</label>
-          <div class="model-row">
+          <label class="form-label">
+            Model
+            <button class="toggle-mode-btn" @click="toggleManualMode">
+              {{ useManualModel ? '切换为下拉选择' : '手动输入' }}
+            </button>
+          </label>
+
+          <!-- 下拉选择模式 -->
+          <div v-if="!useManualModel" class="model-row">
             <select
               v-model="localModel"
               class="form-select"
             >
-              <option value="" disabled>请选择模型</option>
+              <option value="" disabled>
+                {{ modelList.length > 0 ? '请选择模型' : '请先点击 🔄 获取' }}
+              </option>
               <option
                 v-for="m in modelList"
                 :key="m"
@@ -226,10 +262,45 @@ function skipAndFinish() {
               :disabled="isFetchingModels"
               @click="handleFetchModels"
             >
-              {{ isFetchingModels ? '...' : '🔄' }}
+              {{ isFetchingModels ? '⏳' : '🔄' }}
             </button>
           </div>
+
+          <!-- 手动输入模式 -->
+          <div v-else class="model-row">
+            <input
+              v-model="manualModelInput"
+              type="text"
+              class="form-input"
+              placeholder="输入模型名，如 gpt-4o、deepseek-chat"
+            />
+            <button
+              class="refresh-btn"
+              :disabled="isFetchingModels"
+              @click="handleFetchModels"
+              title="尝试获取模型列表"
+            >
+              {{ isFetchingModels ? '⏳' : '🔄' }}
+            </button>
+          </div>
+
           <p v-if="fetchModelError" class="form-error">{{ fetchModelError }}</p>
+          <p v-if="modelList.length > 0 && !useManualModel" class="form-hint">
+            已获取到 {{ modelList.length }} 个模型
+          </p>
+        </div>
+
+        <!-- 验证状态提示 -->
+        <div class="validation-hints">
+          <div class="hint-item" :class="{ valid: isValidBaseURL(localBaseURL) }">
+            {{ isValidBaseURL(localBaseURL) ? '✅' : '⬜' }} Base URL 有效
+          </div>
+          <div class="hint-item" :class="{ valid: isValidAPIKey(localApiKey) }">
+            {{ isValidAPIKey(localApiKey) ? '✅' : '⬜' }} API Key 已填写
+          </div>
+          <div class="hint-item" :class="{ valid: effectiveModel.length > 0 }">
+            {{ effectiveModel.length > 0 ? '✅' : '⬜' }} 模型已选择
+          </div>
         </div>
 
         <div class="step-actions">
@@ -256,8 +327,7 @@ function skipAndFinish() {
             v-model="localNickname"
             type="text"
             class="form-input"
-            placeholder="你希望我怎么称呼你？"
-            maxlength="20"
+            placeholder="你希望我怎么称呼你？"maxlength="20"
           />
         </div>
 
@@ -397,8 +467,7 @@ function skipAndFinish() {
       <!-- ========== [Step3] END ========== -->
 
     </div>
-  </div>
-  <!-- ========== [OnboardingContainer] END ========== -->
+  </div><!-- ========== [OnboardingContainer] END ========== -->
 </template>
 
 <style scoped>
@@ -477,7 +546,9 @@ function skipAndFinish() {
 }
 
 .form-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
@@ -485,6 +556,19 @@ function skipAndFinish() {
 
 .required {
   color: #e57373;
+}
+
+.toggle-mode-btn {
+  font-size: 0.7rem;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+}
+
+.toggle-mode-btn:hover {
+  background: rgba(124, 158, 181, 0.1);
 }
 
 .form-input,
@@ -518,7 +602,7 @@ function skipAndFinish() {
 
 .form-error {
   font-size: 0.75rem;
-  color: #e57373;
+  color: #e5a373;
   margin-top: 0.25rem;
 }
 
@@ -534,7 +618,8 @@ function skipAndFinish() {
   gap: 0.5rem;
 }
 
-.model-row .form-select {
+.model-row .form-select,
+.model-row .form-input {
   flex: 1;
 }
 
@@ -558,11 +643,34 @@ function skipAndFinish() {
 }
 /* ========== [FormElements] END ========== */
 
+/* ========== [ValidationHints] - 验证状态提示 ========== */
+.validation-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  margin-bottom: 1rem;
+}
+
+.hint-item {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.hint-item.valid {
+  opacity: 1;
+  color: #81c784;
+}
+/* ========== [ValidationHints] END ========== */
+
 /* ========== [RadioGroup] - 单选按钮组 ========== */
 .radio-group {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;flex-wrap: wrap;
 }
 
 .radio-item {
