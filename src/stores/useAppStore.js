@@ -16,6 +16,15 @@ export const useAppStore = defineStore('app', () => {
   const isInitialized = ref(false)
   /* ========== [LoadingState] END ========== */
 
+  /* ========== [OnboardingState] - 引导完成标志 ========== */
+  /**
+   * 独立于 configStore.isConfigured 的标志位
+   * 只有走完 Onboarding 最后一步才会置 true
+   * 用于避免"配置有残留 → 直接跳过引导"的 Bug
+   */
+  const onboardingCompleted = ref(false)
+  /* ========== [OnboardingState] END ========== */
+
   /* ========== [UIState] - UI 控制状态 ========== */
   const showSettings = ref(false)
   const showKnowledgePanel = ref(false)
@@ -60,22 +69,46 @@ export const useAppStore = defineStore('app', () => {
   }
   /* ========== [Methods] END ========== */
 
+  /* ========== [OnboardingMethods] - 引导状态操作 ========== */
+  async function markOnboardingCompleted() {
+    onboardingCompleted.value = true
+    await saveToStorage()
+  }
+
+  async function resetOnboarding() {
+    onboardingCompleted.value = false
+    await saveToStorage()
+  }
+  /* ========== [OnboardingMethods] END ========== */
+
   /* ========== [Persistence] - 持久化方法 ========== */
   async function loadFromStorage() {
     const saved = await loadData(STORAGE_KEYS.SETTINGS)
     if (saved) {
-      settings.value = { ...settings.value, ...saved }
+      // 兼容旧数据：优先取 saved.settings，回退到 saved 本身
+      const savedSettings = saved.settings || saved
+      settings.value = {
+        ...settings.value,
+        themeMode: savedSettings.themeMode ?? settings.value.themeMode,
+        musicVolume: savedSettings.musicVolume ?? settings.value.musicVolume,
+        woodenFishText: savedSettings.woodenFishText ?? settings.value.woodenFishText
+      }
+      onboardingCompleted.value = saved.onboardingCompleted === true
     }
   }
 
   async function saveToStorage() {
-    await saveData(STORAGE_KEYS.SETTINGS, settings.value)
+    await saveData(STORAGE_KEYS.SETTINGS, {
+      settings: settings.value,
+      onboardingCompleted: onboardingCompleted.value
+    })
   }
   /* ========== [Persistence] END ========== */
 
   return {
     currentView,
     isInitialized,
+    onboardingCompleted,
     showSettings,
     showKnowledgePanel,
     showCBTModal,
@@ -87,8 +120,11 @@ export const useAppStore = defineStore('app', () => {
     toggleCBTModal,
     toggleSessionDropdown,
     closeAllPanels,
+    markOnboardingCompleted,
+    resetOnboarding,
     loadFromStorage,
     saveToStorage
   }
 })
 /* ========== [AppStore] END ========== */
+

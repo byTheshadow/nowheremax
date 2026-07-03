@@ -103,7 +103,8 @@ async function handleFetchModels() {
     if (Array.isArray(models)) {
       modelList.value = models.map(m => m.id || m.name || m).filter(Boolean).sort()
       if (modelList.value.length > 0) {
-        useManualModel.value = falsemodelFetchError.value = ''
+        useManualModel.value = false
+        modelFetchError.value = ''
       } else {
         modelFetchError.value = '未找到模型，请手动输入'
         useManualModel.value = true
@@ -147,7 +148,6 @@ function prevStep() {
     currentStep.value--
   }
 }
-
 async function finishOnboarding() {
   configStore.setAPIConfig({
     baseURL: localBaseURL.value,
@@ -167,6 +167,9 @@ async function finishOnboarding() {
     notes: localNotes.value
   })
   await profileStore.saveToStorage()
+
+  // 显式标记引导完成，避免依赖 isConfigured 造成的误判
+  await appStore.markOnboardingCompleted()
 
   appStore.navigateTo('main')
 }

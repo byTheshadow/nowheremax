@@ -2,12 +2,10 @@
 /* ========== [Imports] - 依赖导入 ========== */
 import { ref } from 'vue'
 import { useAppStore } from '@/stores/useAppStore'
-import { useConfigStore } from '@/stores/useConfigStore'
 /* ========== [Imports] END ========== */
 
 /* ========== [StoreRefs] - Store 引用 ========== */
 const appStore = useAppStore()
-const configStore = useConfigStore()
 /* ========== [StoreRefs] END ========== */
 
 /* ========== [State] - 组件状态 ========== */
@@ -24,7 +22,9 @@ function enterSpace() {
 
   // 延迟一下让动画播放
   setTimeout(() => {
-    if (configStore.isConfigured) {
+    // 用 onboardingCompleted 判断而不是 isConfigured
+    // 这样即使 IndexedDB 里有残留的 baseURL/apiKey，也不会跳过引导
+    if (appStore.onboardingCompleted) {
       appStore.navigateTo('main')
     } else {
       appStore.navigateTo('onboarding')
@@ -126,7 +126,8 @@ function enterSpace() {
   letter-spacing: 0.15em;
   cursor: pointer;
   transition: all 0.3s ease;
-  animation: breathe 3s ease-in-out infinite;animation-delay: 1.5s;
+  animation: breathe 3s ease-in-out infinite;
+  animation-delay: 1.5s;
 }
 
 .gate-button:hover {
